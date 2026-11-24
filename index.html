@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Money Tracker</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    :root{
+      color-scheme:dark;
+      --page:#101315;--surface:#191e21;--surface-2:#22292d;--text:#edf2f0;--muted:#9aa8a2;
+      --line:#303a3f;--brand:#43b889;--brand-dark:#2d9c70;--brand-soft:#18382d;
+      --blue:#65b8df;--blue-soft:#192f3a;--orange:#e2ad5d;--orange-soft:#382c1c;
+      --red:#f07870;--red-soft:#3b2222;--green:#62d19b;--shadow:0 10px 28px rgba(0,0,0,.24);
+      --radius:15px;--sidebar:244px;
+    }
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{margin:0;background:var(--page);color:var(--text);font:14px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+    button,input,select,textarea{font:inherit}
+    button{cursor:pointer}
+    .layout{min-height:100vh}
+    .sidebar{position:fixed;inset:0 auto 0 0;width:var(--sidebar);background:var(--surface);border-right:1px solid var(--line);padding:25px 17px 18px;display:flex;flex-direction:column;z-index:20}
+    .brand{display:flex;align-items:center;gap:11px;padding:0 10px 30px}
+    .brand-mark{height:38px;width:38px;border-radius:12px;background:var(--brand);color:white;display:grid;place-items:center;font-weight:800;font-size:20px;letter-spacing:-1px}
+    .brand-name{font-weight:800;font-size:17px;letter-spacing:-.4px}.brand-sub{font-size:11px;color:var(--muted);margin-top:1px}
+    .nav-label{padding:0 11px;margin:8px 0 9px;color:var(--muted);font-size:10px;font-weight:800;letter-spacing:1.3px;text-transform:uppercase}
+    .nav{display:grid;gap:5px}
+    .nav button{border:0;background:transparent;color:var(--muted);text-align:left;width:100%;display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:10px;font-weight:650;transition:.15s}
+    .nav button:hover{background:var(--surface-2);color:var(--text)}
+    .nav button.active{background:var(--brand-soft);color:var(--brand)}
+    .nav-icon{width:19px;text-align:center;font-size:16px}
+    .sidebar-bottom{margin-top:auto;border-top:1px solid var(--line);padding:17px 9px 0;color:var(--muted);font-size:11px}
+    .connection-line{display:flex;align-items:center;gap:7px;margin-bottom:7px;font-size:12px;font-weight:650;color:#69776f}
+    .dot{width:7px;height:7px;border-radius:50%;background:#c5cec9;display:inline-block}.dot.ok{background:#2fa36e}.dot.bad{background:#c34b43}
+    .main{margin-left:var(--sidebar);min-height:100vh}
+    .topbar{height:76px;background:rgba(25,30,33,.94);border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 38px;position:sticky;top:0;z-index:10;backdrop-filter:blur(12px)}
+    .top-left{display:flex;align-items:center;gap:14px}.mobile-menu{display:none;border:1px solid var(--line);background:var(--surface);border-radius:9px;padding:8px 10px}
+    .crumb{font-size:12px;color:var(--muted)}.page-heading{font-weight:750;font-size:18px;letter-spacing:-.4px}
+    .top-actions{display:flex;align-items:center;gap:10px}
+    .date-stamp{font-size:12px;color:var(--muted);margin-right:8px}
+    .btn{border:1px solid var(--line);background:var(--surface-2);color:var(--text);padding:9px 13px;border-radius:9px;font-weight:650;display:inline-flex;align-items:center;justify-content:center;gap:7px;transition:.15s}
+    .btn:hover{border-color:#52645b;background:#283238}.btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}.btn.primary:hover{background:var(--brand-dark)}.btn.soft{background:var(--brand-soft);border-color:var(--brand-soft);color:var(--brand)}.btn.danger{background:var(--red-soft);border-color:var(--red-soft);color:var(--red)}.btn:disabled{opacity:.55;cursor:not-allowed}
+    .content{max-width:1440px;margin:0 auto;padding:29px 38px 55px}
+    .page{display:none}.page.active{display:block}
+    .page-intro{display:flex;justify-content:space-between;align-items:flex-end;gap:20px;margin-bottom:23px}
+    h1{font-size:25px;letter-spacing:-.8px;margin:0 0 4px;font-weight:800}.subtext{margin:0;color:var(--muted);font-size:13px}
+    .grid{display:grid;gap:16px}.stats{grid-template-columns:repeat(4,minmax(0,1fr));margin-bottom:18px}
+    .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+    .stat{padding:18px 19px;min-height:128px;position:relative;overflow:hidden}.stat-top{display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-size:12px;font-weight:650}.stat-icon{width:32px;height:32px;border-radius:10px;display:grid;place-items:center;font-size:15px}.stat-icon.green{background:var(--brand-soft);color:var(--brand)}.stat-icon.blue{background:var(--blue-soft);color:var(--blue)}.stat-icon.orange{background:var(--orange-soft);color:var(--orange)}.stat-icon.gray{background:#f0f2f1;color:#718078}
+    .stat-value{font-size:25px;font-weight:800;letter-spacing:-.7px;margin-top:12px;font-variant-numeric:tabular-nums}.stat-foot{font-size:11px;color:var(--muted);margin-top:3px}
+    .two-col{grid-template-columns:minmax(0,1.5fr) minmax(300px,1fr);margin-bottom:18px}.chart-card{padding:19px 20px;min-height:315px}.card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:15px}.card-title{font-weight:750;font-size:14px}.card-caption{font-size:11px;color:var(--muted);margin-top:3px}.chart-wrap{position:relative;height:235px}
+    .lower-grid{grid-template-columns:minmax(0,1.4fr) minmax(280px,1fr)}.table-card{padding:18px 20px}.table-wrap{width:100%;overflow:auto}table{width:100%;border-collapse:collapse;white-space:nowrap}th{text-align:left;color:#8a9790;font-size:10px;text-transform:uppercase;letter-spacing:.8px;padding:11px 10px;border-bottom:1px solid var(--line);font-weight:750}td{padding:12px 10px;border-bottom:1px solid var(--line);font-size:12px}tbody tr:last-child td{border-bottom:0}.amount{font-weight:750;font-variant-numeric:tabular-nums}.positive{color:var(--green)}.negative{color:var(--red)}.muted{color:var(--muted)}.pill{display:inline-flex;align-items:center;border-radius:99px;padding:3px 8px;font-size:10px;font-weight:700;background:var(--surface-2);color:#66756d}.pill.cash{background:var(--orange-soft);color:var(--orange)}.pill.upi{background:var(--blue-soft);color:var(--blue)}.pill.income{background:var(--brand-soft);color:var(--brand)}.pill.expense{background:var(--red-soft);color:var(--red)}
+    .category-list{display:grid;gap:14px}.cat-row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}.cat-name{font-size:12px;font-weight:650}.cat-value{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}.bar-track{grid-column:1/-1;height:6px;background:#303a3f;border-radius:99px;overflow:hidden}.bar-fill{height:100%;background:var(--brand);border-radius:99px}
+    .form-card{padding:22px;margin-bottom:18px}.form-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px}.field{display:flex;flex-direction:column;gap:6px}.field.span-2{grid-column:span 2}.field.span-4{grid-column:span 4}label{font-size:11px;color:var(--muted);font-weight:700}input,select,textarea{width:100%;border:1px solid var(--line);background:var(--surface-2);border-radius:9px;padding:10px 11px;color:var(--text);outline:none;min-height:41px}input:focus,select:focus,textarea:focus{border-color:#6ca58d;box-shadow:0 0 0 3px rgba(23,107,80,.09)}input::placeholder{color:#82918a}.form-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:15px}.section-title{font-size:14px;font-weight:750;margin:0 0 15px}.filters{display:flex;flex-wrap:wrap;align-items:center;gap:9px;margin-bottom:13px}.filters input{max-width:250px}.filters select{width:auto;min-width:130px}.empty{padding:35px 15px;text-align:center;color:var(--muted);font-size:13px}
+    .notice{padding:13px 15px;border-radius:11px;background:var(--blue-soft);border:1px solid #dcebf1;color:#315d70;font-size:12px;margin-bottom:18px}.notice.warning{background:var(--orange-soft);border-color:#f1e2c9;color:#81591f}.notice.success{background:var(--brand-soft);border-color:#d5e8dd;color:var(--brand)}
+    .settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:17px}.settings-card{padding:21px}.settings-card .field{margin-bottom:13px}.settings-card h3{font-size:14px;margin:0 0 5px}.settings-card p{font-size:12px;color:var(--muted);margin:0 0 17px}.balance-check{display:grid;grid-template-columns:1fr 1fr;gap:14px}.gap-box{background:var(--surface-2);border-radius:11px;padding:14px;margin-top:14px}.gap-line{display:flex;justify-content:space-between;padding:6px 0;font-size:12px}.gap-line strong{font-variant-numeric:tabular-nums}.status{font-size:12px;color:var(--muted);margin-top:10px;min-height:18px}.footnote{font-size:11px;color:var(--muted);line-height:1.6;margin-top:16px}
+    .mobile-overlay{display:none}
+    .category-field{position:relative}
+    .category-input-wrap{display:flex;align-items:stretch;width:100%}
+    .category-input-wrap input{min-width:0;flex:1;border-radius:9px 0 0 9px;border-right:0}
+    .category-toggle{width:43px;flex:0 0 43px;border:1px solid var(--line);border-left:0;border-radius:0 9px 9px 0;background:var(--surface-2);color:var(--text);display:grid;place-items:center;font-size:15px}
+    .category-toggle:hover,.category-toggle[aria-expanded="true"]{background:#2b3833;color:#7ce0b4}
+    .category-input-wrap:focus-within input,.category-input-wrap:focus-within .category-toggle{border-color:#6ca58d}
+    .category-suggestions{display:none;position:absolute;z-index:30;top:calc(100% - 25px);left:0;right:0;max-height:230px;overflow:auto;background:#20272b;border:1px solid #3a464c;border-radius:10px;box-shadow:0 14px 30px rgba(0,0,0,.42);padding:5px}
+    .category-suggestions.open{display:block}
+    .category-option{display:block;width:100%;border:0;background:transparent;color:#edf2f0;text-align:left;padding:10px 11px;border-radius:7px;cursor:pointer}
+    .category-option:hover,.category-option.active{background:#304139;color:#7ce0b4}
+    .category-hint{font-size:10px;color:var(--muted);margin-top:3px}
+    .notice{background:#192f3a;border-color:#294957;color:#b7dcec}.notice.warning{background:#382c1c;border-color:#554126;color:#f0c987}.notice.success{background:#18382d;border-color:#28533f;color:#8be0b7}
+    th{color:#9aa8a2} .stat-icon.gray{background:#2a3236;color:#aab7b1}
+    canvas{color:var(--text)}
+    select option{background:#22292d;color:#edf2f0}
+    input,select,textarea{color-scheme:dark}
+    .stat{min-height:142px}
+    @media(max-width:1120px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.field.span-4{grid-column:span 2}}
+    @media(max-width:820px){:root{--sidebar:0px}.sidebar{transform:translateX(-100%);width:250px;transition:transform .2s ease;box-shadow:var(--shadow)}body.menu-open .sidebar{transform:translateX(0)}.mobile-overlay{position:fixed;inset:0;background:rgba(20,35,28,.25);z-index:15}body.menu-open .mobile-overlay{display:block}.main{margin-left:0}.mobile-menu{display:inline-flex}.topbar{padding:0 18px}.content{padding:24px 18px 45px}.date-stamp{display:none}}
+    @media(max-width:650px){.two-col,.lower-grid,.settings-grid{grid-template-columns:1fr}.stats{gap:10px}.stat{padding:15px;min-height:115px}.stat-value{font-size:21px}.topbar{height:66px}.page-heading{font-size:16px}.top-actions .btn span{display:none}.content{padding-top:20px}.page-intro{align-items:flex-start;flex-direction:column}.form-grid{grid-template-columns:1fr}.field.span-2,.field.span-4{grid-column:span 1}.balance-check{grid-template-columns:1fr}.chart-card{min-height:295px}.chart-wrap{height:215px}}
+  </style>
+</head>
+<body>
+<div class="layout">
+  <div class="mobile-overlay" id="mobileOverlay"></div>
+  <aside class="sidebar" id="sidebar">
+    <div class="brand"><div class="brand-mark">M</div><div><div class="brand-name">Money Tracker</div><div class="brand-sub">Personal finance dashboard</div></div></div>
+    <div class="nav-label">Workspace</div>
+    <nav class="nav" aria-label="Main navigation">
+      <button class="active" data-page="overview"><span class="nav-icon">▦</span> Overview</button>
+      <button data-page="transactions"><span class="nav-icon">↕</span> Transactions</button>
+      <button data-page="transfers"><span class="nav-icon">⇄</span> Transfers</button>
+      <button data-page="reports"><span class="nav-icon">▤</span> Reports</button>
+    </nav>
+    <div class="nav-label" style="margin-top:27px">Manage</div>
+    <nav class="nav">
+      <button data-page="reconcile"><span class="nav-icon">◎</span> Reconciliation</button>
+      <button data-page="settings"><span class="nav-icon">⚙</span> Settings</button>
+    </nav>
+    <div class="sidebar-bottom">
+      <div class="connection-line"><span class="dot" id="sideDot"></span><span id="sideConnection">Not connected</span></div>
+      <div>Website edition · v1.0</div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div class="top-left">
+        <button class="mobile-menu" id="menuButton" aria-label="Open navigation">☰</button>
+        <div><div class="crumb">PERSONAL FINANCE / <span id="crumbCurrent">OVERVIEW</span></div><div class="page-heading" id="topHeading">Overview</div></div>
+      </div>
+      <div class="top-actions"><span class="date-stamp" id="todayStamp"></span><button class="btn" id="refreshButton">↻ <span>Refresh</span></button><button class="btn primary" id="topAddButton">＋ <span>New transaction</span></button></div>
+    </header>
+
+    <div class="content">
+      <div id="setupNotice" class="notice warning" style="display:none">Connect your Google Sheet from <strong>Settings</strong> to load your real transactions. The dashboard will remain empty until the connection is configured.</div>
+
+      <section class="page active" id="page-overview">
+        <div class="page-intro"><div><h1>Overview</h1><p class="subtext" id="overviewSub">A clear view of your money across cash and bank.</p></div><button class="btn" id="monthReset">This month ▾</button></div>
+        <div class="grid stats">
+          <div class="card stat"><div class="stat-top"><span>UPI / Bank balance</span><span class="stat-icon blue">↗</span></div><div class="stat-value" id="statUpi">₹0</div><div class="stat-foot">Calculated from your entries</div></div>
+          <div class="card stat"><div class="stat-top"><span>Cash in hand</span><span class="stat-icon orange">₹</span></div><div class="stat-value" id="statCash">₹0</div><div class="stat-foot">Calculated from your entries</div></div>
+          <div class="card stat"><div class="stat-top"><span>Total available</span><span class="stat-icon green">◈</span></div><div class="stat-value" id="statTotal">₹0</div><div class="stat-foot">Bank balance + cash in hand</div></div>
+          <div class="card stat"><div class="stat-top"><span>Spent this month</span><span class="stat-icon gray">↘</span></div><div class="stat-value" id="statSpent">₹0</div><div class="stat-foot" id="statSpentNote">Across cash and UPI</div></div>
+        </div>
+        <div class="grid two-col">
+          <div class="card chart-card"><div class="card-head"><div><div class="card-title">Income vs expenses</div><div class="card-caption">Monthly totals from the selected period</div></div><select id="overviewPeriod" style="width:auto;min-height:34px;padding:6px 9px;font-size:11px"><option value="month">This month</option><option value="all">Since start date</option></select></div><div class="chart-wrap"><canvas id="incomeExpenseChart"></canvas></div></div>
+          <div class="card chart-card"><div class="card-head"><div><div class="card-title">Spending by payment mode</div><div class="card-caption">Cash vs UPI expenses this month</div></div></div><div class="chart-wrap"><canvas id="modeChart"></canvas></div></div>
+        </div>
+        <div class="grid lower-grid">
+          <div class="card table-card"><div class="card-head"><div><div class="card-title">Recent transactions</div><div class="card-caption">Latest activity since your tracking start date</div></div><button class="btn" data-goto="transactions">View all →</button></div><div class="table-wrap"><table><thead><tr><th>Date</th><th>Description</th><th>Category</th><th>Account</th><th style="text-align:right">Amount</th></tr></thead><tbody id="recentRows"><tr><td colspan="5" class="empty">No transactions loaded.</td></tr></tbody></table></div></div>
+          <div class="card table-card"><div class="card-head"><div><div class="card-title">Top spending categories</div><div class="card-caption">Current month</div></div></div><div class="category-list" id="topCategories"><div class="empty">No expenses to display.</div></div></div>
+        </div>
+      </section>
+
+      <section class="page" id="page-transactions">
+        <div class="page-intro"><div><h1>Transactions</h1><p class="subtext">Record and review income and expenses.</p></div></div>
+        <div class="card form-card"><h2 class="section-title">Add transaction</h2>
+          <form id="transactionForm"><div class="form-grid">
+            <div class="field"><label for="txType">Transaction type</label><select id="txType"><option>Expense</option><option>Income</option></select></div>
+            <div class="field"><label for="txAmount">Amount (₹)</label><input id="txAmount" type="number" min="0.01" step="0.01" placeholder="0.00" required></div>
+            <div class="field category-field"><label for="txCategory">Category</label><div class="category-input-wrap"><input id="txCategory" autocomplete="off" placeholder="Type first 2–3 letters" aria-autocomplete="list" aria-haspopup="listbox" aria-expanded="false" aria-controls="categorySuggestions" required><button type="button" id="categoryToggle" class="category-toggle" aria-label="Show all categories" aria-expanded="false" title="Show all categories">▾</button></div><div id="categorySuggestions" class="category-suggestions" role="listbox"></div><div class="category-hint">Type a few letters and press Tab or Enter, or use the arrow to browse all categories.</div></div>
+            <div class="field"><label for="txMode">Paid through</label><select id="txMode"><option value="UPI">UPI / Bank</option><option value="Cash">Cash</option></select></div>
+            <div class="field"><label for="txDate">Date</label><input id="txDate" type="date" required></div>
+            <div class="field span-2"><label for="txDescription">Description</label><input id="txDescription" type="text" maxlength="180" placeholder="What was this transaction for?"></div>
+          </div>
+          <div class="form-actions"><button type="reset" class="btn">Clear</button><button class="btn primary" type="submit" id="saveTxButton">Save transaction</button></div></form>
+        </div>
+        <div class="card table-card"><div class="card-head"><div><div class="card-title">Transaction history</div><div class="card-caption" id="transactionCount">0 entries</div></div></div>
+          <div class="filters"><input id="txSearch" placeholder="Search description or category"><select id="txFilterType"><option value="all">All types</option><option>Income</option><option>Expense</option></select><select id="txFilterMode"><option value="all">All accounts</option><option value="upi">UPI / Bank</option><option value="cash">Cash</option></select></div>
+          <div class="table-wrap"><table><thead><tr><th>Date</th><th>Type</th><th>Description</th><th>Category</th><th>Account</th><th style="text-align:right">Amount</th></tr></thead><tbody id="transactionRows"></tbody></table></div>
+        </div>
+      </section>
+
+      <section class="page" id="page-transfers">
+        <div class="page-intro"><div><h1>Transfers</h1><p class="subtext">Move money between bank / UPI and physical cash without counting it as income or expense.</p></div></div>
+        <div class="notice">Example: withdrawing ₹2,000 from an ATM reduces your bank balance and increases your cash balance. It is not an expense.</div>
+        <div class="card form-card"><h2 class="section-title">Record a transfer</h2><form id="transferForm"><div class="form-grid">
+          <div class="field"><label for="transferKind">Transfer type</label><select id="transferKind"><option value="withdraw">ATM withdrawal (UPI → Cash)</option><option value="deposit">Cash deposit (Cash → UPI)</option></select></div>
+          <div class="field"><label for="transferAmount">Amount (₹)</label><input id="transferAmount" type="number" min="0.01" step="0.01" placeholder="0.00" required></div>
+          <div class="field"><label for="transferDate">Date</label><input id="transferDate" type="date" required></div>
+          <div class="field"><label for="transferNote">Note (optional)</label><input id="transferNote" maxlength="180" placeholder="ATM, bank deposit, etc."></div>
+        </div><div class="form-actions"><button class="btn" type="reset">Clear</button><button class="btn primary" type="submit" id="saveTransferButton">Save transfer</button></div></form></div>
+        <div class="card table-card"><div class="card-head"><div><div class="card-title">Transfer history</div><div class="card-caption">Transfers are excluded from income and expense totals.</div></div></div><div class="table-wrap"><table><thead><tr><th>Date</th><th>From</th><th>To</th><th>Note</th><th style="text-align:right">Amount</th></tr></thead><tbody id="transferRows"></tbody></table></div></div>
+      </section>
+
+      <section class="page" id="page-reports">
+        <div class="page-intro"><div><h1>Reports</h1><p class="subtext">Understand where your money comes from and where it goes.</p></div><select id="reportPeriod" style="width:auto"><option value="month">This month</option><option value="all">Since start date</option></select></div>
+        <div class="grid stats">
+          <div class="card stat"><div class="stat-top"><span>Total income</span><span class="stat-icon green">↗</span></div><div class="stat-value" id="reportIncome">₹0</div><div class="stat-foot">Selected period</div></div>
+          <div class="card stat"><div class="stat-top"><span>Total expenses</span><span class="stat-icon orange">↘</span></div><div class="stat-value" id="reportExpense">₹0</div><div class="stat-foot">Selected period</div></div>
+          <div class="card stat"><div class="stat-top"><span>Net cash flow</span><span class="stat-icon blue">⇄</span></div><div class="stat-value" id="reportNet">₹0</div><div class="stat-foot">Income minus expenses</div></div>
+          <div class="card stat"><div class="stat-top"><span>Transaction count</span><span class="stat-icon gray">#</span></div><div class="stat-value" id="reportCount">0</div><div class="stat-foot">Selected period</div></div>
+        </div>
+        <div class="grid two-col"><div class="card chart-card"><div class="card-head"><div><div class="card-title">Expenses by category</div><div class="card-caption">Largest categories first</div></div></div><div class="chart-wrap"><canvas id="categoryChart"></canvas></div></div><div class="card chart-card"><div class="card-head"><div><div class="card-title">Expense split</div><div class="card-caption">UPI / bank compared with cash</div></div></div><div class="chart-wrap"><canvas id="reportModeChart"></canvas></div></div></div>
+      </section>
+
+      <section class="page" id="page-reconcile">
+        <div class="page-intro"><div><h1>Reconciliation</h1><p class="subtext">Compare calculated balances with the real balances you can see and count.</p></div></div>
+        <div class="notice warning">A difference usually means a transaction or transfer is missing, duplicated or entered with the wrong amount. Find the cause before making any correction.</div>
+        <div class="card form-card"><div class="balance-check">
+          <div class="field"><label for="actualUpi">Actual bank / UPI balance (₹)</label><input id="actualUpi" type="number" step="0.01" placeholder="Enter the balance shown by your bank"></div>
+          <div class="field"><label for="actualCash">Physical cash counted (₹)</label><input id="actualCash" type="number" step="0.01" placeholder="Count the cash you have"></div>
+        </div>
+        <div class="gap-box"><div class="gap-line"><span>App-calculated bank / UPI</span><strong id="calcUpi">₹0</strong></div><div class="gap-line"><span>Bank / UPI difference</span><strong id="gapUpi">Not entered</strong></div><div class="gap-line"><span>App-calculated cash</span><strong id="calcCash">₹0</strong></div><div class="gap-line"><span>Cash difference</span><strong id="gapCash">Not entered</strong></div></div>
+        <div class="form-actions"><button class="btn" id="clearReconcile">Clear actual balances</button></div>
+        <p class="footnote">Positive difference means your real balance is higher than the app's calculated balance. Negative difference means the app has more money recorded than you actually have. Do not use a balance adjustment to hide an unexplained difference.</p>
+        </div>
+      </section>
+
+      <section class="page" id="page-settings">
+        <div class="page-intro"><div><h1>Settings</h1><p class="subtext">Connect this website to your Google Sheet and configure your tracking start.</p></div></div>
+        <div class="settings-grid">
+          <div class="card settings-card"><h3>Google Sheets connection</h3><p>Enter the deployed Google Apps Script web app URL and the secret key you configured in Code.gs.</p>
+            <div class="field"><label for="apiUrl">Apps Script web app URL</label><input id="apiUrl" type="url" placeholder="https://script.google.com/macros/s/.../exec" autocomplete="url"></div>
+            <div class="field"><label for="apiKey">Secret key</label><input id="apiKey" type="password" placeholder="Your private key" autocomplete="off"></div>
+            <div style="display:flex;gap:9px;flex-wrap:wrap"><button class="btn primary" id="connectButton">Save & connect</button><button class="btn" id="disconnectButton">Clear connection</button></div><div class="status" id="connectionStatus">Not connected.</div>
+            <div class="footnote">The URL and key are saved only in this browser's local storage. Do not put the key in the website files or commit it to GitHub. This shared-key setup is a basic gate, not strong user authentication.</div>
+          </div>
+          <div class="card settings-card"><h3>Fresh start balances</h3><p>Choose the date from which this tracker should count entries. Earlier transactions stay in your sheet but are ignored in the calculations.</p>
+            <div class="field"><label for="startDate">Tracking start date</label><input id="startDate" type="date"></div>
+            <div class="field"><label for="openingCash">Cash in hand at start (₹)</label><input id="openingCash" type="number" min="0" step="0.01" placeholder="0.00"></div>
+            <div class="field"><label for="openingUpi">Bank / UPI balance at start (₹)</label><input id="openingUpi" type="number" min="0" step="0.01" placeholder="0.00"></div>
+            <button class="btn primary" id="saveStartButton">Save start balances</button><div class="status" id="startStatus">No tracking start configured.</div>
+            <div class="footnote">Set these balances once, at the beginning of your fresh tracking period. Changing them later recalculates the full period.</div>
+          </div>
+        </div>
+        <div class="card settings-card" style="margin-top:17px"><h3>Data and accounting rules</h3><p style="margin-bottom:8px">This website uses your existing Transactions tab and a Transfers tab.</p>
+          <ul class="footnote" style="padding-left:18px;margin-top:4px"><li>Income and expenses affect the selected account (UPI / bank or cash).</li><li>ATM withdrawals move money from UPI / bank to cash. Cash deposits move money from cash to UPI / bank.</li><li>Transfers are not income or expenses.</li><li>The manually typed ACC BALANCE column is ignored.</li><li>Balances are calculated from the opening balances and entries dated on or after the tracking start date.</li></ul>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+<div id="toast" role="status" aria-live="polite" style="position:fixed;right:22px;bottom:22px;z-index:50;background:#17251f;color:#fff;padding:11px 16px;border-radius:10px;box-shadow:var(--shadow);font-size:12px;display:none;max-width:min(400px,calc(100vw - 44px))"></div>
+<script>
+(() => {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const STORAGE_KEY = 'moneyTrackerConnectionV1';
+  const state = { rows:[], transfers:[], categories:{income:[],expense:[]}, start:{date:'',cash:0,upi:0}, charts:{}, connected:false, loading:false };
+  const pageNames = {overview:'Overview',transactions:'Transactions',transfers:'Transfers',reports:'Reports',reconcile:'Reconciliation',settings:'Settings'};
+  const money = value => (Number(value)<0?'-':'')+'₹'+Math.abs(Number(value)||0).toLocaleString('en-IN',{minimumFractionDigits:0,maximumFractionDigits:2});
+  const number = value => Number.isFinite(Number(value)) ? Number(value) : 0;
+  const todayISO = () => { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
+  const dateObj = s => { if(!s) return null; const [y,m,d]=String(s).slice(0,10).split('-').map(Number); return new Date(y,m-1,d); };
+  const dateLabel = s => { const d=dateObj(s); return d ? d.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : '—'; };
+  const escapeHtml = s => String(s??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const currentMonth = () => todayISO().slice(0,7);
+  const monthRows = rows => rows.filter(r=>String(r.date||'').slice(0,7)===currentMonth());
+  const liveRows = () => state.rows.filter(r=>!state.start.date || r.date>=state.start.date);
+  const liveTransfers = () => state.transfers.filter(t=>!state.start.date || t.date>=state.start.date);
+  const sum = (arr, fn) => arr.reduce((total,item)=>total+number(fn(item)),0);
+  function toast(message, error=false){ const el=$('toast'); el.textContent=message; el.style.background=error?'#9f332d':'#17251f'; el.style.display='block'; clearTimeout(toast.timer); toast.timer=setTimeout(()=>el.style.display='none',3300); }
+  function setConnectionStatus(message, ok=null){ $('connectionStatus').textContent=message; $('sideConnection').textContent=ok===true?'Connected':ok===false?'Not connected':'Connection status'; $('sideDot').className='dot'+(ok===true?' ok':ok===false?' bad':''); }
+  function getConfig(){ try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}')}catch{return {}} }
+  function saveConfig(config){ localStorage.setItem(STORAGE_KEY,JSON.stringify(config)); }
+  function apiUrl(){ return getConfig().url||''; }
+  async function apiRequest(method='GET', payload=null){
+    const cfg=getConfig(); if(!cfg.url || !cfg.key) throw new Error('Set the Apps Script URL and secret key in Settings first.');
+    let url=cfg.url;
+    if(method==='GET') url += (url.includes('?')?'&':'?')+'key='+encodeURIComponent(cfg.key)+'&ts='+Date.now();
+    const options={method,redirect:'follow',cache:'no-store'};
+    if(method==='POST'){ options.headers={'Content-Type':'text/plain;charset=utf-8'}; options.body=JSON.stringify({...payload,key:cfg.key}); }
+    let response;
+    try{ response=await fetch(url,options); }catch(e){ throw new Error('Could not reach Apps Script. Check the URL, deployment access and browser connection. '+e.message); }
+    const raw=await response.text(); let data;
+    try{data=JSON.parse(raw)}catch{throw new Error('The API did not return JSON. Check that the Apps Script URL ends in /exec and is deployed as a web app.');}
+    if(!response.ok) throw new Error(data.error||`Request failed (${response.status}).`);
+    if(data && data.error) throw new Error(data.error);
+    return data;
+  }
+  async function connectAndLoad(showToast=true){
+    if(state.loading) return; state.loading=true; $('connectButton').disabled=true; $('refreshButton').disabled=true;
+    setConnectionStatus('Connecting…');
+    try{ const data=await apiRequest('GET'); applyData(data); state.connected=true; setConnectionStatus('Connected. Data loaded from your Google Sheet.',true); $('setupNotice').style.display='none'; if(showToast)toast('Connected to Google Sheets.'); }
+    catch(err){ state.connected=false; setConnectionStatus(err.message,false); $('setupNotice').style.display='block'; if(showToast)toast(err.message,true); }
+    finally{state.loading=false;$('connectButton').disabled=false;$('refreshButton').disabled=false;}
+  }
+  async function syncFromSheet(){
+    if(!state.connected || state.loading || document.visibilityState==='hidden') return;
+    state.loading=true;
+    try{
+      const data=await apiRequest('GET');
+      applyData(data);
+      const time=new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
+      setConnectionStatus('Connected · Last synced '+time,true);
+    }catch(err){
+      setConnectionStatus('Auto-sync issue: '+err.message,false);
+    }finally{state.loading=false;}
+  }
+  function applyData(data){
+    if(!data || !Array.isArray(data.rows) || !Array.isArray(data.transfers) || !data.start) throw new Error('Unexpected API response. Expected rows, transfers and start data.');
+    if(!data.categories || !Array.isArray(data.categories.income) || !Array.isArray(data.categories.expense)) {
+      throw new Error('Category sync is not available yet. Replace Code.gs with the updated backend and deploy a new version.');
+    }
+    state.rows=data.rows.map(r=>({...r,amount:number(r.amount),mode:String(r.mode||'upi').toLowerCase()}));
+    state.transfers=data.transfers.map(t=>({...t,amount:number(t.amount)}));
+    state.categories={
+      income:data.categories.income.map(v=>String(v||'').trim()).filter(Boolean),
+      expense:data.categories.expense.map(v=>String(v||'').trim()).filter(Boolean)
+    };
+    state.start={date:String(data.start.date||''),cash:number(data.start.cash),upi:number(data.start.upi)};
+    if($('startDate')){$('startDate').value=state.start.date;$('openingCash').value=state.start.cash;$('openingUpi').value=state.start.upi;}
+    renderAll();
+  }
+  function balances(){let cash=number(state.start.cash),upi=number(state.start.upi);
+    liveRows().forEach(r=>{const sign=r.type==='Income'?1:-1;if(String(r.mode).toLowerCase()==='cash')cash+=sign*r.amount;else upi+=sign*r.amount;});
+    liveTransfers().forEach(t=>{if(t.from==='UPI')upi-=t.amount;else if(t.from==='Cash')cash-=t.amount;if(t.to==='UPI')upi+=t.amount;else if(t.to==='Cash')cash+=t.amount;});
+    return {cash,upi,total:cash+upi};
+  }
+  function periodRows(period){return period==='all'?liveRows():monthRows(liveRows());}
+  function makeChart(id,config){if(state.charts[id])state.charts[id].destroy();const canvas=$(id);if(!canvas)return;state.charts[id]=new Chart(canvas,config);}
+  const chartBase={responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{usePointStyle:true,boxWidth:8,font:{size:10}}}}};
+  function renderOverview(){
+    const b=balances(), L=liveRows(), M=monthRows(L), spent=sum(M.filter(r=>r.type==='Expense'),r=>r.amount);
+    $('statUpi').textContent=money(b.upi);$('statCash').textContent=money(b.cash);$('statTotal').textContent=money(b.total);$('statSpent').textContent=money(spent);
+    $('overviewSub').textContent=state.start.date?'Tracking since '+dateLabel(state.start.date)+'. Earlier entries are not included.':'Set a tracking start date in Settings to begin calculating balances.';
+    const data=periodRows($('overviewPeriod').value);const income=sum(data.filter(r=>r.type==='Income'),r=>r.amount),expense=sum(data.filter(r=>r.type==='Expense'),r=>r.amount);
+    makeChart('incomeExpenseChart',{type:'bar',data:{labels:['Income','Expenses'],datasets:[{data:[income,expense],backgroundColor:['#25845c','#c34b43'],borderRadius:7,maxBarThickness:58}]},options:{...chartBase,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>money(c.raw)}}},scales:{x:{grid:{display:false},ticks:{color:'#aab7b1'}},y:{beginAtZero:true,grid:{color:'#303a3f'},ticks:{color:'#aab7b1',callback:v=>money(v),font:{size:10}}}}}});
+    const upi=sum(M.filter(r=>r.type==='Expense'&&r.mode!=='cash'),r=>r.amount),cash=sum(M.filter(r=>r.type==='Expense'&&r.mode==='cash'),r=>r.amount);
+    makeChart('modeChart',{type:'doughnut',data:{labels:['UPI / Bank','Cash'],datasets:[{data:[upi,cash],backgroundColor:['#347da0','#d49a45'],borderWidth:0,hoverOffset:4}]},options:{...chartBase,cutout:'70%',plugins:{legend:{position:'bottom',labels:{color:'#aab7b1',usePointStyle:true,boxWidth:8,padding:18,font:{size:10}}},tooltip:{callbacks:{label:c=>`${c.label}: ${money(c.raw)}`}}}}});
+    const recent=L.slice().sort((a,b)=>b.date.localeCompare(a.date)).slice(0,7);
+    $('recentRows').innerHTML=recent.length?recent.map(r=>`<tr><td>${dateLabel(r.date)}</td><td>${escapeHtml(r.description||r.category||'—')}</td><td>${escapeHtml(r.category||'—')}</td><td><span class="pill ${r.mode==='cash'?'cash':'upi'}">${r.mode==='cash'?'Cash':'UPI'}</span></td><td style="text-align:right" class="amount ${r.type==='Income'?'positive':'negative'}">${r.type==='Income'?'+':'−'}${money(r.amount)}</td></tr>`).join(''):'<tr><td colspan="5" class="empty">No transactions from the tracking start date.</td></tr>';
+    const categories={};M.filter(r=>r.type==='Expense').forEach(r=>categories[r.category||'Uncategorised']=(categories[r.category||'Uncategorised']||0)+r.amount);
+    const top=Object.entries(categories).sort((a,b)=>b[1]-a[1]).slice(0,6),max=top[0]?.[1]||1;
+    $('topCategories').innerHTML=top.length?top.map(([name,value])=>`<div class="cat-row"><span class="cat-name">${escapeHtml(name)}</span><span class="cat-value">${money(value)}</span><div class="bar-track"><div class="bar-fill" style="width:${Math.max(2,value/max*100)}%"></div></div></div>`).join(''):'<div class="empty">No expenses this month.</div>';
+  }
+  function renderTransactions(){
+    const q=$('txSearch').value.trim().toLowerCase(), type=$('txFilterType').value, mode=$('txFilterMode').value;
+    const filtered=liveRows().slice().sort((a,b)=>b.date.localeCompare(a.date)).filter(r=>{
+      const typeOk=type==='all'||r.type===type;
+      return typeOk&&(mode==='all'||r.mode===mode)&&(!q||`${r.description||''} ${r.category||''} ${r.type||''}`.toLowerCase().includes(q));
+    });
+    $('transactionCount').textContent=`${filtered.length} ${filtered.length===1?'entry':'entries'} shown`;
+    $('transactionRows').innerHTML=filtered.length?filtered.map(r=>`<tr><td>${dateLabel(r.date)}</td><td><span class="pill ${r.type==='Income'?'income':'expense'}">${r.type}</span></td><td>${escapeHtml(r.description||'—')}</td><td>${escapeHtml(r.category||'—')}</td><td><span class="pill ${r.mode==='cash'?'cash':'upi'}">${r.mode==='cash'?'Cash':'UPI'}</span></td><td style="text-align:right" class="amount ${r.type==='Income'?'positive':'negative'}">${r.type==='Income'?'+':'−'}${money(r.amount)}</td></tr>`).join(''):'<tr><td colspan="6" class="empty">No matching transactions.</td></tr>';
+  }
+  function renderTransfers(){const list=liveTransfers().slice().sort((a,b)=>b.date.localeCompare(a.date));$('transferRows').innerHTML=list.length?list.map(t=>`<tr><td>${dateLabel(t.date)}</td><td><span class="pill ${t.from==='Cash'?'cash':'upi'}">${escapeHtml(t.from)}</span></td><td><span class="pill ${t.to==='Cash'?'cash':'upi'}">${escapeHtml(t.to)}</span></td><td>${escapeHtml(t.note||'—')}</td><td style="text-align:right" class="amount">${money(t.amount)}</td></tr>`).join(''):'<tr><td colspan="5" class="empty">No transfers recorded.</td></tr>';}
+  function renderReports(){const data=periodRows($('reportPeriod').value),expenses=data.filter(r=>r.type==='Expense'),income=sum(data.filter(r=>r.type==='Income'),r=>r.amount),expense=sum(expenses,r=>r.amount),net=income-expense;
+    $('reportIncome').textContent=money(income);$('reportExpense').textContent=money(expense);$('reportNet').textContent=money(net);$('reportNet').className='stat-value '+(net>=0?'positive':'negative');$('reportCount').textContent=data.length.toLocaleString('en-IN');
+    const cats={};expenses.forEach(r=>cats[r.category||'Uncategorised']=(cats[r.category||'Uncategorised']||0)+r.amount);const sorted=Object.entries(cats).sort((a,b)=>b[1]-a[1]).slice(0,10);
+    makeChart('categoryChart',{type:'bar',data:{labels:sorted.map(x=>x[0]),datasets:[{data:sorted.map(x=>x[1]),backgroundColor:'#347da0',borderRadius:5,maxBarThickness:25}]},options:{...chartBase,indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>money(c.raw)}}},scales:{x:{beginAtZero:true,grid:{color:'#303a3f'},ticks:{color:'#aab7b1',callback:v=>money(v),font:{size:9}}},y:{grid:{display:false},ticks:{color:'#aab7b1',font:{size:10}}}}}});
+    const u=sum(expenses.filter(r=>r.mode!=='cash'),r=>r.amount),c=sum(expenses.filter(r=>r.mode==='cash'),r=>r.amount);
+    makeChart('reportModeChart',{type:'doughnut',data:{labels:['UPI / Bank','Cash'],datasets:[{data:[u,c],backgroundColor:['#347da0','#d49a45'],borderWidth:0}]},options:{...chartBase,cutout:'68%',plugins:{legend:{position:'bottom',labels:{usePointStyle:true,boxWidth:8,padding:18,font:{size:10}}},tooltip:{callbacks:{label:x=>`${x.label}: ${money(x.raw)}`}}}}});
+  }
+  function renderReconcile(){const b=balances();$('calcUpi').textContent=money(b.upi);$('calcCash').textContent=money(b.cash);const u=$('actualUpi').value,c=$('actualCash').value;
+    $('gapUpi').textContent=u===''?'Not entered':money(number(u)-b.upi);$('gapCash').textContent=c===''?'Not entered':money(number(c)-b.cash);
+    $('gapUpi').className=number(u)-b.upi>=0?'positive':'negative';$('gapCash').className=number(c)-b.cash>=0?'positive':'negative';
+  }
+  let categoryMatches=[],categoryActive=-1,categoryBrowseAll=false;
+  function allCategories(){return $('txType').value==='Income'?state.categories.income:state.categories.expense;}
+  function closeCategorySuggestions(){
+    $('categorySuggestions').classList.remove('open');
+    $('categoryToggle').setAttribute('aria-expanded','false');
+    $('txCategory').setAttribute('aria-expanded','false');
+    categoryActive=-1;categoryBrowseAll=false;
+  }
+  function chooseCategory(value){$('txCategory').value=value;closeCategorySuggestions();}
+  function renderCategoryOptions(){
+    if(!categoryMatches.length){closeCategorySuggestions();return;}
+    $('categorySuggestions').innerHTML=categoryMatches.map((c,i)=>`<button type="button" class="category-option" role="option" data-category-index="${i}">${escapeHtml(c)}</button>`).join('');
+    $('categorySuggestions').classList.add('open');
+    $('categoryToggle').setAttribute('aria-expanded','true');
+    $('txCategory').setAttribute('aria-expanded','true');
+  }
+  function renderCategories(showAll=false){
+    const input=$('txCategory'),q=input.value.trim().toLowerCase();categoryActive=-1;
+    if(showAll)categoryBrowseAll=true;
+    else if(q.length)categoryBrowseAll=false;
+    if(categoryBrowseAll){categoryMatches=allCategories();renderCategoryOptions();return;}
+    if(q.length<2){categoryMatches=[];closeCategorySuggestions();return;}
+    categoryMatches=allCategories().filter(c=>c.toLowerCase().startsWith(q));
+    renderCategoryOptions();
+  }
+  function setCategoryActive(index){categoryActive=Math.max(0,Math.min(index,categoryMatches.length-1));$('categorySuggestions').querySelectorAll('.category-option[data-category-index]').forEach((el,i)=>el.classList.toggle('active',i===categoryActive));const active=$('categorySuggestions').querySelector('.category-option.active');if(active)active.scrollIntoView({block:'nearest'});}
+  $('txCategory').addEventListener('input',()=>renderCategories(false));
+  $('txCategory').addEventListener('focus',()=>{if($('txCategory').value.trim().length>=2)renderCategories(false);});
+  $('txType').addEventListener('change',()=>{ $('txCategory').value=''; closeCategorySuggestions(); });
+  $('categoryToggle').addEventListener('mousedown',e=>e.preventDefault());
+  $('categoryToggle').addEventListener('click',()=>{
+    if($('categorySuggestions').classList.contains('open')&&categoryBrowseAll){closeCategorySuggestions();return;}
+    $('txCategory').focus();renderCategories(true);
+  });
+  $('txCategory').addEventListener('keydown',e=>{
+    if(e.key==='ArrowDown'&&categoryMatches.length){e.preventDefault();setCategoryActive(categoryActive+1);}
+    else if(e.key==='ArrowUp'&&categoryMatches.length){e.preventDefault();setCategoryActive(categoryActive<0?0:categoryActive-1);}
+    else if(e.key==='Tab'&&categoryMatches.length&&e.shiftKey===false){chooseCategory(categoryMatches[categoryActive>=0?categoryActive:0]); /* allow normal Tab focus movement */}
+    else if(e.key==='Enter'&&categoryMatches.length){e.preventDefault();chooseCategory(categoryMatches[categoryActive>=0?categoryActive:0]);}
+    else if(e.key==='Escape')closeCategorySuggestions();
+  });
+  $('categorySuggestions').addEventListener('mousedown',e=>{const option=e.target.closest('[data-category-index]');if(option){e.preventDefault();chooseCategory(categoryMatches[Number(option.dataset.categoryIndex)]);}});
+  $('txCategory').addEventListener('blur',()=>setTimeout(closeCategorySuggestions,130));
+  function renderAll(){renderCategories();renderOverview();renderTransactions();renderTransfers();renderReports();renderReconcile();}
+  function showPage(name){if(!pageNames[name])name='overview';document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.id===`page-${name}`));document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===name));$('topHeading').textContent=pageNames[name];$('crumbCurrent').textContent=pageNames[name].toUpperCase();history.replaceState(null,'',`#${name}`);document.body.classList.remove('menu-open');if(name==='reports')renderReports();}
+  document.querySelectorAll('.nav button').forEach(b=>b.addEventListener('click',()=>showPage(b.dataset.page)));
+  document.querySelectorAll('[data-goto]').forEach(b=>b.addEventListener('click',()=>showPage(b.dataset.goto)));
+  $('menuButton').addEventListener('click',()=>document.body.classList.toggle('menu-open'));$('mobileOverlay').addEventListener('click',()=>document.body.classList.remove('menu-open'));
+  $('topAddButton').addEventListener('click',()=>{showPage('transactions');$('txAmount').focus();});
+  $('refreshButton').addEventListener('click',()=>connectAndLoad());
+  $('overviewPeriod').addEventListener('change',renderOverview);$('reportPeriod').addEventListener('change',renderReports);
+  ['txSearch','txFilterType','txFilterMode'].forEach(id=>$(id).addEventListener(id==='txSearch'?'input':'change',renderTransactions));
+  ['actualUpi','actualCash'].forEach(id=>$(id).addEventListener('input',renderReconcile));$('clearReconcile').addEventListener('click',()=>{$('actualUpi').value='';$('actualCash').value='';renderReconcile();});
+  $('transactionForm').addEventListener('reset',()=>setTimeout(()=>$('txDate').value=todayISO(),0));
+  $('transactionForm').addEventListener('submit',async e=>{e.preventDefault();const tx={date:$('txDate').value,type:$('txType').value,amount:number($('txAmount').value),category:$('txCategory').value.trim()||'Others',description:$('txDescription').value.trim(),mode:$('txMode').value};
+    if(!tx.amount||tx.amount<=0||!tx.date)return toast('Enter a valid amount and date.',true);if(state.start.date&&tx.date<state.start.date)return toast('Date is before the tracking start date. Choose a date on or after '+state.start.date+'.',true);if(!state.connected)return toast('Connect to your Google Sheet from Settings first.',true);
+    const btn=$('saveTxButton');btn.disabled=true;btn.textContent='Saving…';try{const data=await apiRequest('POST',{action:'tx',data:tx});applyData(data);$('transactionForm').reset();toast('Transaction saved to Google Sheets.');}catch(err){toast(err.message,true);}finally{btn.disabled=false;btn.textContent='Save transaction';}
+  });
+  $('transferForm').addEventListener('reset',()=>setTimeout(()=>$('transferDate').value=todayISO(),0));
+  $('transferForm').addEventListener('submit',async e=>{e.preventDefault();const t={kind:$('transferKind').value,date:$('transferDate').value,amount:number($('transferAmount').value),note:$('transferNote').value.trim()};
+    if(!t.amount||t.amount<=0||!t.date)return toast('Enter a valid amount and date.',true);if(state.start.date&&t.date<state.start.date)return toast('Date is before the tracking start date. Choose a date on or after '+state.start.date+'.',true);if(!state.connected)return toast('Connect to your Google Sheet from Settings first.',true);
+    const btn=$('saveTransferButton');btn.disabled=true;btn.textContent='Saving…';try{const data=await apiRequest('POST',{action:'transfer',data:t});applyData(data);$('transferForm').reset();toast('Transfer saved to Google Sheets.');}catch(err){toast(err.message,true);}finally{btn.disabled=false;btn.textContent='Save transfer';}
+  });
+  $('connectButton').addEventListener('click',async()=>{const url=$('apiUrl').value.trim(),key=$('apiKey').value.trim();if(!url||!key)return setConnectionStatus('Enter both the web app URL and secret key.',false);if(!/^https:\/\/script\.google\.com\/macros\/s\//.test(url))return setConnectionStatus('This does not look like a Google Apps Script web app URL.',false);saveConfig({url,key});await connectAndLoad();});
+  $('disconnectButton').addEventListener('click',()=>{localStorage.removeItem(STORAGE_KEY);state.connected=false;state.rows=[];state.transfers=[];state.start={date:'',cash:0,upi:0};$('apiKey').value='';setConnectionStatus('Connection details cleared.',false);$('setupNotice').style.display='block';renderAll();toast('Connection details removed from this browser.');});
+  $('saveStartButton').addEventListener('click',async()=>{const data={date:$('startDate').value,cash:number($('openingCash').value),upi:number($('openingUpi').value)};if(!data.date)return $('startStatus').textContent='Choose a tracking start date.';if(data.cash<0||data.upi<0)return $('startStatus').textContent='Opening balances cannot be negative.';if(!state.connected)return $('startStatus').textContent='Connect to your Google Sheet first.';if(!confirm('Save these opening balances and recalculate from '+data.date+'? This changes the balances shown by the tracker.'))return;
+    const btn=$('saveStartButton');btn.disabled=true;btn.textContent='Saving…';try{const result=await apiRequest('POST',{action:'start',data});applyData(result);$('startStatus').textContent='Start date and opening balances saved.';toast('Tracking start saved.');}catch(err){$('startStatus').textContent=err.message;toast(err.message,true);}finally{btn.disabled=false;btn.textContent='Save start balances';}
+  });
+  $('monthReset').addEventListener('click',()=>{$('overviewPeriod').value='month';renderOverview();});
+  $('todayStamp').textContent=new Date().toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
+  $('txDate').value=todayISO();$('transferDate').value=todayISO();$('startDate').value=todayISO();
+  const cfg=getConfig();if(cfg.url)$('apiUrl').value=cfg.url;if(cfg.key)$('apiKey').value=cfg.key;
+  const initial=(location.hash||'#overview').slice(1);showPage(pageNames[initial]?initial:'overview');renderAll();
+  if(cfg.url&&cfg.key)connectAndLoad(false);else{$('setupNotice').style.display='block';setConnectionStatus('Not connected',false);}
+  // Refresh transactions, transfers, opening settings and Setup-tab categories every 30 seconds while visible.
+  setInterval(syncFromSheet,30000);
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')syncFromSheet();});
+})();
+</script>
+</body>
+</html>
